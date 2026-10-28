@@ -14,12 +14,14 @@
             --border-color: #333;
             --highlight-color: #ffb74d;
             --active-play: #03dac6;
+            --lock-active: #e65100; /* Dark Orange */
         }
 
         * {
             box-sizing: border-box;
             user-select: none;
             -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent; /* Removes mobile tap flash */
         }
 
         body {
@@ -74,6 +76,8 @@
             padding: 12px;
             font-size: 1.1rem;
             resize: none;
+            user-select: text;
+            -webkit-user-select: text;
         }
 
         textarea:focus {
@@ -88,7 +92,11 @@
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
         }
 
         .input-actions {
@@ -140,6 +148,7 @@
 
         .divide-controls {
             display: flex;
+            flex-wrap: wrap;
             gap: 10px;
             margin-top: 10px;
         }
@@ -148,12 +157,21 @@
             background-color: #3700b3;
             color: #fff;
             flex: 1;
+            min-width: 120px;
         }
 
         .btn-make {
             background-color: var(--highlight-color);
             color: #121212;
             flex: 1;
+            min-width: 120px;
+        }
+
+        .btn-undo {
+            background-color: #444;
+            color: #ff8a80;
+            width: 100%;
+            margin-top: 5px;
         }
 
         .chunks-list {
@@ -180,6 +198,7 @@
             height: 100vh;
             padding: 16px;
             background-color: #0d0d0d;
+            outline: none;
         }
 
         .tap-area {
@@ -191,6 +210,8 @@
             align-items: center;
             cursor: pointer;
             padding: 20px;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .large-chunk-display {
@@ -222,16 +243,18 @@
             font-weight: bold;
             border: none;
             cursor: pointer;
+            outline: none;
         }
 
         .btn-lock {
-            background-color: #ffb74d;
-            color: #121212;
+            background-color: #333;
+            color: #fff;
         }
 
         .btn-lock.locked {
-            background-color: #ff9800;
-            box-shadow: 0 0 10px #ff9800;
+            background-color: var(--lock-active);
+            color: #ffffff;
+            box-shadow: 0 0 12px rgba(230, 81, 0, 0.6);
         }
 
         .btn-reset {
@@ -240,8 +263,9 @@
         }
 
         .btn-back {
-            background-color: #333;
-            color: #fff;
+            background-color: #222;
+            color: #aaa;
+            border: 1px solid #444;
         }
     </style>
 </head>
@@ -266,6 +290,7 @@
             <div class="divide-controls">
                 <button class="btn btn-step" id="addCharBtn">➕ Add Character</button>
                 <button class="btn btn-make" id="saveChunkBtn">✂️ Save Chunk</button>
+                <button class="btn btn-undo" id="resetSelectionBtn">↩ Undo / Reset Selection</button>
             </div>
         </div>
 
@@ -302,7 +327,6 @@
         loadVoices();
         if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = loadVoices;
 
-        // Initialize Web Audio API context on user gesture for zero latency
         function initAudioContext() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -313,7 +337,6 @@
             synth.cancel();
         }
 
-        // Instant & robust TTS playback
         function speakText(text) {
             initAudioContext();
             if (!text) return;
@@ -333,7 +356,6 @@
         let currentPlaybackIndex = 0;
         let isLocked = false;
 
-        // Elements
         const setupPage = document.getElementById('setupPage');
         const playerPage = document.getElementById('playerPage');
         const sentenceInput = document.getElementById('sentenceInput');
@@ -343,6 +365,7 @@
         const charGrid = document.getElementById('charGrid');
         const addCharBtn = document.getElementById('addCharBtn');
         const saveChunkBtn = document.getElementById('saveChunkBtn');
+        const resetSelectionBtn = document.getElementById('resetSelectionBtn');
         const chunksSection = document.getElementById('chunksSection');
         const chunksList = document.getElementById('chunksList');
         const goToPlayerBtn = document.getElementById('goToPlayerBtn');
@@ -354,7 +377,6 @@
         const resetBtn = document.getElementById('resetBtn');
         const backBtn = document.getElementById('backBtn');
 
-        // Clear text button
         clearTextBtn.addEventListener('click', () => {
             sentenceInput.value = '';
             sentenceInput.focus();
@@ -418,6 +440,14 @@
             renderChunksList();
         });
 
+        // Reset Selection Button
+        resetSelectionBtn.addEventListener('click', () => {
+            if (selectedIndices.length === 0) return;
+            cursorIndex = selectedIndices[0];
+            selectedIndices = [];
+            renderCharGrid();
+        });
+
         function renderChunksList() {
             chunksList.innerHTML = '';
             chunks.forEach((chunk, idx) => {
@@ -428,7 +458,6 @@
             });
         }
 
-        // Switch to Fullscreen Player View
         function openPlayer() {
             if (chunks.length === 0) {
                 alert("Please create at least one chunk first.");
@@ -449,7 +478,6 @@
             chunkCounter.textContent = `Chunk ${currentPlaybackIndex + 1} of ${chunks.length}`;
         }
 
-        // Tap Anywhere to Play & Advance
         tapArea.addEventListener('click', () => {
             if (chunks.length === 0) return;
 
@@ -461,7 +489,6 @@
             }
         });
 
-        // Lock / Unlock Chunk Button
         lockBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             isLocked = !isLocked;
@@ -474,7 +501,6 @@
             }
         });
 
-        // Reset to Beginning Button
         resetBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             currentPlaybackIndex = 0;
@@ -482,7 +508,6 @@
             updatePlayerUI();
         });
 
-        // Back Button
         backBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             synth.cancel();
