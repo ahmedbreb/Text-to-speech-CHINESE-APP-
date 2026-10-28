@@ -302,7 +302,7 @@
 
         <div class="section">
             <label for="sentenceInput">Enter Chinese Sentence:</label>
-            <textarea id="sentenceInput" placeholder="例如：要讲究卫生">要讲究卫生</textarea>
+            <textarea id="sentenceInput" placeholder="例如：公共场所">公共场所</textarea>
             
             <div class="tone-legend" style="margin-top: 8px;">
                 <span><span class="tone-dot" style="background:#4fc3f7;"></span>1st (Blue)</span>
@@ -426,21 +426,25 @@
             sentenceInput.focus();
         });
 
-        // 100% Precise Character-by-Character Tone Mapping with Sentence Context & Sandhi
+        // Robust full-sentence tokenization & tone extraction matching pinyin-pro's exact index parsing
         function computeSentenceTones(sentence) {
             if (!window.pinyinPro) return Array(sentence.length).fill(0);
             try {
+                // Fetch full pinyin array matching word/char tokens with tone numbers
+                const pinyinTokens = pinyinPro.pinyin(sentence, { toneType: 'num', type: 'array', nonZh: 'spaced' });
+                
                 let tones = [];
-                // Process the whole sentence with context enabled so multi-character words are evaluated correctly
+                let pIndex = 0;
+
                 for (let i = 0; i < sentence.length; i++) {
                     const char = sentence[i];
                     if (/[\u4e00-\u9fa5]/.test(char)) {
-                        // Use context option so pinyin-pro analyzes multi-character words correctly
-                        const py = pinyinPro.pinyin(char, { toneType: 'num', context: sentence, index: i });
+                        const py = pinyinTokens[pIndex] || '';
+                        pIndex++;
                         const match = py.match(/(\d)$/);
                         tones.push(match ? parseInt(match[1]) : 0);
                     } else {
-                        tones.push(0); // Non-Chinese characters / punctuation
+                        tones.push(0); // Punctuation / spaces
                     }
                 }
 
