@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chinese Sentence Chunk Trainer</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --accent-color: #bb86fc;
+            --accent-hover: #9955ef;
+            --border-color: #333;
+            --active-chunk: #03dac6;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            width: 100%;
+            max-width: 650px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        h2 {
+            margin-top: 0;
+            color: var(--accent-color);
+            font-size: 1.4rem;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-bottom: 8px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 90px;
+            background-color: #2a2a2a;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 1.1rem;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--accent-color);
+            color: #121212;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: background 0.2s;
+        }
+
+        .action-btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .chunk-display {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 16px;
+            background-color: #252525;
+            border-radius: 8px;
+            min-height: 50px;
+            align-items: center;
+        }
+
+        .chunk-button {
+            background-color: #333;
+            color: #fff;
+            border: 1px solid var(--accent-color);
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chunk-button:hover {
+            background-color: var(--accent-color);
+            color: #121212;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .control-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-start {
+            background-color: #03dac6;
+            color: #121212;
+        }
+
+        .btn-stop {
+            background-color: #cf6679;
+            color: #121212;
+        }
+
+        .speed-control {
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .speed-control select {
+            padding: 8px;
+            background-color: #2a2a2a;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Chinese Sentence Chunk Trainer</h2>
+
+        <div class="input-group">
+            <label for="sentenceInput">Enter Chinese sentence (use <strong>/</strong> to divide into custom parts):</label>
+            <textarea id="sentenceInput" placeholder="例如：我想去中国 / 学习汉语 / 和爬长城。"></textarea>
+            <button class="action-btn" id="parseBtn">Divide Sentence</button>
+        </div>
+
+        <label>Click any chunk button to hear that specific part:</label>
+        <div class="chunk-display" id="chunkDisplay">
+            <span style="color: #777;">Your split parts will appear here...</span>
+        </div>
+
+        <div class="controls">
+            <button class="control-btn btn-start" id="playFullBtn">▶ Play From Beginning</button>
+            <button class="control-btn btn-stop" id="stopBtn">⏹ Stop Audio</button>
+        </div>
+
+        <div class="speed-control">
+            <label for="rateSelect" style="margin-bottom:0;">Speech Speed:</label>
+            <select id="rateSelect">
+                <option value="0.75" selected>0.75x (Slower)</option>
+                <option value="1">1.0x (Normal)</option>
+                <option value="0.5">0.5x (Slow)</option>
+            </select>
+        </div>
+    </div>
+
+    <script>
+        const synth = window.speechSynthesis;
+        const sentenceInput = document.getElementById('sentenceInput');
+        const parseBtn = document.getElementById('parseBtn');
+        const chunkDisplay = document.getElementById('chunkDisplay');
+        const playFullBtn = document.getElementById('playFullBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const rateSelect = document.getElementById('rateSelect');
+
+        let currentChunks = [];
+        let chineseVoice = null;
+
+        // Load available voices and pick a Mandarin Chinese voice (zh-CN)
+        function loadVoices() {
+            const voices = synth.getVoices();
+            chineseVoice = voices.find(voice => voice.lang.includes('zh') || voice.lang.includes('CN')) || null;
+        }
+
+        loadVoices();
+        if (synth.onvoiceschanged !== undefined) {
+            synth.onvoiceschanged = loadVoices;
+        }
+
+        // Speech playback helper
+        function speakText(text) {
+            if (synth.speaking) {
+                synth.cancel();
+            }
+
+            if (!text.trim()) return;
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'zh-CN';
+            if (chineseVoice) {
+                utterance.voice = chineseVoice;
+            }
+            utterance.rate = parseFloat(rateSelect.value);
+
+            synth.speak(utterance);
+        }
+
+        // Parse sentence into custom chunk buttons
+        parseBtn.addEventListener('click', () => {
+            const rawText = sentenceInput.value.trim();
+            if (!rawText) return;
+
+            // Split by forward slash or backslash
+            currentChunks = rawText.split(/[\/\\]/).map(chunk => chunk.trim()).filter(chunk => chunk.length > 0);
+
+            chunkDisplay.innerHTML = '';
+
+            currentChunks.forEach((chunkText) => {
+                const btn = document.createElement('button');
+                btn.className = 'chunk-button';
+                btn.textContent = chunkText;
+                btn.addEventListener('click', () => {
+                    speakText(chunkText);
+                });
+                chunkDisplay.appendChild(btn);
+            });
+        });
+
+        // Play the full original text from beginning
+        playFullBtn.addEventListener('click', () => {
+            const fullText = sentenceInput.value.replace(/[\/\\]/g, '').trim();
+            speakText(fullText);
+        });
+
+        // Stop button
+        stopBtn.addEventListener('click', () => {
+            if (synth.speaking) {
+                synth.cancel();
+            }
+        });
+    </script>
+</body>
+</html>
