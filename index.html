@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chinese Sentence Chunk Trainer</title>
+    <title>Chinese Custom Chunk Trainer</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -12,11 +12,12 @@
             --accent-color: #bb86fc;
             --accent-hover: #9955ef;
             --border-color: #333;
-            --active-chunk: #03dac6;
+            --highlight-color: #ffb74d;
+            --active-play: #03dac6;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
@@ -43,7 +44,7 @@
             font-size: 1.4rem;
         }
 
-        .input-group {
+        .section {
             margin-bottom: 20px;
         }
 
@@ -56,14 +57,13 @@
 
         textarea {
             width: 100%;
-            height: 90px;
+            height: 80px;
             background-color: #2a2a2a;
             color: var(--text-color);
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 12px;
             font-size: 1.1rem;
-            resize: vertical;
             box-sizing: border-box;
         }
 
@@ -72,198 +72,322 @@
             border-color: var(--accent-color);
         }
 
-        .action-btn {
-            width: 100%;
-            padding: 12px;
-            background-color: var(--accent-color);
-            color: #121212;
+        .btn {
+            padding: 12px 16px;
             border: none;
             border-radius: 8px;
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            margin-top: 8px;
             transition: background 0.2s;
         }
 
-        .action-btn:hover {
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: #121212;
+            width: 100%;
+            margin-top: 8px;
+        }
+
+        .btn-primary:hover {
             background-color: var(--accent-hover);
         }
 
-        .chunk-display {
+        .char-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 15px 0;
+            padding: 12px;
+            background: #252525;
+            border-radius: 8px;
+        }
+
+        .char-tile {
+            background: #333;
+            color: #fff;
+            padding: 10px 14px;
+            font-size: 1.3rem;
+            border-radius: 6px;
+            border: 2px solid transparent;
+        }
+
+        .char-tile.highlighted {
+            border-color: var(--highlight-color);
+            background: #3d3522;
+        }
+
+        .char-tile.chunked {
+            opacity: 0.4;
+            background: #222;
+        }
+
+        .divide-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn-step {
+            background-color: #3700b3;
+            color: #fff;
+            flex: 1;
+        }
+
+        .btn-make {
+            background-color: var(--highlight-color);
+            color: #121212;
+            flex: 1;
+        }
+
+        .chunks-list {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
-            margin: 20px 0;
-            padding: 16px;
-            background-color: #252525;
-            border-radius: 8px;
-            min-height: 50px;
-            align-items: center;
+            margin: 15px 0;
+            min-height: 40px;
         }
 
-        .chunk-button {
-            background-color: #333;
+        .chunk-badge {
+            background: #2a2a2a;
+            border: 1px solid var(--border-color);
             color: #fff;
-            border: 1px solid var(--accent-color);
-            padding: 10px 16px;
+            padding: 8px 14px;
             border-radius: 6px;
-            font-size: 1.2rem;
-            cursor: pointer;
-            transition: all 0.2s;
+            font-size: 1.1rem;
         }
 
-        .chunk-button:hover {
-            background-color: var(--accent-color);
-            color: #121212;
+        .chunk-badge.active-playback {
+            border-color: var(--active-play);
+            background: #003733;
+            color: #03dac6;
+            font-weight: bold;
         }
 
-        .controls {
+        .large-controls {
             display: flex;
-            gap: 10px;
-            margin-top: 15px;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 25px;
         }
 
-        .control-btn {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            font-weight: 600;
+        .btn-large {
+            padding: 16px;
+            font-size: 1.1rem;
+            border-radius: 10px;
+            font-weight: bold;
             cursor: pointer;
+            border: none;
         }
 
-        .btn-start {
-            background-color: #03dac6;
+        .btn-play-next {
+            background-color: var(--active-play);
             color: #121212;
         }
 
-        .btn-stop {
+        .btn-play-next:hover {
+            background-color: #02b3a2;
+        }
+
+        .btn-reset {
             background-color: #cf6679;
             color: #121212;
         }
 
-        .speed-control {
-            margin-top: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .speed-control select {
-            padding: 8px;
-            background-color: #2a2a2a;
-            color: var(--text-color);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
+        .btn-reset:hover {
+            background-color: #b04e60;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>Chinese Sentence Chunk Trainer</h2>
+        <h2>Chinese Custom Chunk Trainer</h2>
 
-        <div class="input-group">
-            <label for="sentenceInput">Enter Chinese sentence (use <strong>/</strong> to divide into custom parts):</label>
-            <textarea id="sentenceInput" placeholder="例如：我想去中国 / 学习汉语 / 和爬长城。"></textarea>
-            <button class="action-btn" id="parseBtn">Divide Sentence</button>
+        <!-- Step 1: Input -->
+        <div class="section">
+            <label for="sentenceInput">Enter Chinese Sentence:</label>
+            <textarea id="sentenceInput" placeholder="例如：我想去中国学习汉语">我想去中国学习汉语</textarea>
+            <button class="btn btn-primary" id="startDivideBtn">1. Start Dividing Sentence</button>
         </div>
 
-        <label>Click any chunk button to hear that specific part:</label>
-        <div class="chunk-display" id="chunkDisplay">
-            <span style="color: #777;">Your split parts will appear here...</span>
+        <!-- Step 2: Division Workspace -->
+        <div class="section" id="divideSection" style="display:none;">
+            <label>Character Highlighting & Custom Chunking:</label>
+            <div class="char-grid" id="charGrid"></div>
+            <div class="divide-controls">
+                <button class="btn btn-step" id="stepBtn">👉 Highlight Next Character</button>
+                <button class="btn btn-make" id="makeChunkBtn">✂️ Make Highlight a Chunk</button>
+            </div>
         </div>
 
-        <div class="controls">
-            <button class="control-btn btn-start" id="playFullBtn">▶ Play From Beginning</button>
-            <button class="control-btn btn-stop" id="stopBtn">⏹ Stop Audio</button>
-        </div>
+        <!-- Step 3: Playback Dashboard -->
+        <div class="section" id="chunksSection" style="display:none;">
+            <label>Your Created Chunks:</label>
+            <div class="chunks-list" id="chunksList"></div>
 
-        <div class="speed-control">
-            <label for="rateSelect" style="margin-bottom:0;">Speech Speed:</label>
-            <select id="rateSelect">
-                <option value="0.75" selected>0.75x (Slower)</option>
-                <option value="1">1.0x (Normal)</option>
-                <option value="0.5">0.5x (Slow)</option>
-            </select>
+            <div class="large-controls">
+                <button class="btn btn-large btn-play-next" id="playNextBtn">▶ Play Next Chunk (Loops to Start)</button>
+                <button class="btn btn-large btn-reset" id="resetBtn">🔄 Reset to Beginning</button>
+            </div>
         </div>
     </div>
 
     <script>
         const synth = window.speechSynthesis;
-        const sentenceInput = document.getElementById('sentenceInput');
-        const parseBtn = document.getElementById('parseBtn');
-        const chunkDisplay = document.getElementById('chunkDisplay');
-        const playFullBtn = document.getElementById('playFullBtn');
-        const stopBtn = document.getElementById('stopBtn');
-        const rateSelect = document.getElementById('rateSelect');
-
-        let currentChunks = [];
         let chineseVoice = null;
 
-        // Load available voices and pick a Mandarin Chinese voice (zh-CN)
         function loadVoices() {
             const voices = synth.getVoices();
-            chineseVoice = voices.find(voice => voice.lang.includes('zh') || voice.lang.includes('CN')) || null;
+            chineseVoice = voices.find(v => v.lang.includes('zh') || v.lang.includes('CN')) || null;
         }
-
         loadVoices();
-        if (synth.onvoiceschanged !== undefined) {
-            synth.onvoiceschanged = loadVoices;
+        if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = loadVoices;
+
+        function speak(text) {
+            if (synth.speaking) synth.cancel();
+            if (!text) return;
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'zh-CN';
+            if (chineseVoice) u.voice = chineseVoice;
+            synth.speak(u);
         }
 
-        // Speech playback helper
-        function speakText(text) {
-            if (synth.speaking) {
-                synth.cancel();
-            }
+        let chars = [];
+        let highlightStart = 0;
+        let highlightEnd = 0; 
+        let chunks = [];
+        let currentPlaybackIndex = 0;
 
-            if (!text.trim()) return;
+        const sentenceInput = document.getElementById('sentenceInput');
+        const startDivideBtn = document.getElementById('startDivideBtn');
+        const divideSection = document.getElementById('divideSection');
+        const charGrid = document.getElementById('charGrid');
+        const stepBtn = document.getElementById('stepBtn');
+        const makeChunkBtn = document.getElementById('makeChunkBtn');
+        const chunksSection = document.getElementById('chunksSection');
+        const chunksList = document.getElementById('chunksList');
+        const playNextBtn = document.getElementById('playNextBtn');
+        const resetBtn = document.getElementById('resetBtn');
 
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'zh-CN';
-            if (chineseVoice) {
-                utterance.voice = chineseVoice;
-            }
-            utterance.rate = parseFloat(rateSelect.value);
+        startDivideBtn.addEventListener('click', () => {
+            const text = sentenceInput.value.trim();
+            if (!text) return;
+            chars = Array.from(text);
+            highlightStart = 0;
+            highlightEnd = 0;
+            chunks = [];
+            currentPlaybackIndex = 0;
 
-            synth.speak(utterance);
-        }
+            divideSection.style.display = 'block';
+            chunksSection.style.display = 'none';
+            renderCharGrid();
+        });
 
-        // Parse sentence into custom chunk buttons
-        parseBtn.addEventListener('click', () => {
-            const rawText = sentenceInput.value.trim();
-            if (!rawText) return;
-
-            // Split by forward slash or backslash
-            currentChunks = rawText.split(/[\/\\]/).map(chunk => chunk.trim()).filter(chunk => chunk.length > 0);
-
-            chunkDisplay.innerHTML = '';
-
-            currentChunks.forEach((chunkText) => {
-                const btn = document.createElement('button');
-                btn.className = 'chunk-button';
-                btn.textContent = chunkText;
-                btn.addEventListener('click', () => {
-                    speakText(chunkText);
-                });
-                chunkDisplay.appendChild(btn);
+        function renderCharGrid() {
+            charGrid.innerHTML = '';
+            chars.forEach((c, idx) => {
+                const tile = document.createElement('div');
+                tile.className = 'char-tile';
+                if (idx >= highlightStart && idx < highlightEnd) {
+                    tile.classList.add('highlighted');
+                }
+                if (isIndexChunked(idx)) {
+                    tile.classList.add('chunked');
+                }
+                tile.textContent = c;
+                charGrid.appendChild(tile);
             });
-        });
+        }
 
-        // Play the full original text from beginning
-        playFullBtn.addEventListener('click', () => {
-            const fullText = sentenceInput.value.replace(/[\/\\]/g, '').trim();
-            speakText(fullText);
-        });
+        function isIndexChunked(idx) {
+            return chunks.some(chunk => idx >= chunk.start && idx < chunk.end);
+        }
 
-        // Stop button
-        stopBtn.addEventListener('click', () => {
-            if (synth.speaking) {
-                synth.cancel();
+        // Button 1: Go over characters one by one and highlight them
+        stepBtn.addEventListener('click', () => {
+            let nextUnchunked = highlightEnd;
+            while (nextUnchunked < chars.length && isIndexChunked(nextUnchunked)) {
+                nextUnchunked++;
             }
+
+            if (nextUnchunked >= chars.length) {
+                alert("All characters have been chunked! Use the play buttons below.");
+                return;
+            }
+
+            if (highlightEnd <= highlightStart || highlightStart < nextUnchunked) {
+                highlightStart = nextUnchunked;
+                highlightEnd = highlightStart + 1;
+            } else {
+                if (highlightEnd < chars.length && !isIndexChunked(highlightEnd)) {
+                    highlightEnd++;
+                }
+            }
+            renderCharGrid();
+        });
+
+        // Button 2: Make the highlight its own chunk
+        makeChunkBtn.addEventListener('click', () => {
+            if (highlightEnd <= highlightStart) {
+                alert("Please highlight at least one character first using the 'Highlight Next Character' button.");
+                return;
+            }
+
+            let chunkText = chars.slice(highlightStart, highlightEnd).join('');
+            chunks.push({
+                text: chunkText,
+                start: highlightStart,
+                end: highlightEnd
+            });
+
+            highlightStart = highlightEnd;
+            highlightEnd = highlightStart;
+
+            renderCharGrid();
+            renderChunksList();
+
+            // If all characters are now chunked, show the audio dashboard
+            if (chunks.reduce((acc, c) => acc + (c.end - c.start), 0) === chars.length) {
+                chunksSection.style.display = 'block';
+            }
+        });
+
+        function renderChunksList() {
+            chunksList.innerHTML = '';
+            chunks.forEach((chunk, idx) => {
+                const badge = document.createElement('div');
+                badge.className = 'chunk-badge';
+                if (idx === currentPlaybackIndex) {
+                    badge.classList.add('active-playback');
+                }
+                badge.textContent = `${idx + 1}: ${chunk.text}`;
+                chunksList.appendChild(badge);
+            });
+        }
+
+        // Large Button 1: Play each chunk one by one. Loops back to start if at the end!
+        playNextBtn.addEventListener('click', () => {
+            if (chunks.length === 0) return;
+
+            // Speak current chunk immediately without delay
+            speak(chunks[currentPlaybackIndex].text);
+
+            // Highlight active chunk in UI
+            renderChunksList();
+
+            // Advance index, loop back to 0 if reached the end
+            currentPlaybackIndex++;
+            if (currentPlaybackIndex >= chunks.length) {
+                currentPlaybackIndex = 0;
+            }
+        });
+
+        // Large Button 2: Reset to beginning
+        resetBtn.addEventListener('click', () => {
+            currentPlaybackIndex = 0;
+            if (synth.speaking) synth.cancel();
+            renderChunksList();
         });
     </script>
 </body>
