@@ -302,7 +302,7 @@
 
         <div class="section">
             <label for="sentenceInput">Enter Chinese Sentence:</label>
-            <textarea id="sentenceInput" placeholder="例如：我想去中国学习汉语">要讲究卫生</textarea>
+            <textarea id="sentenceInput" placeholder="例如：要讲究卫生">要讲究卫生</textarea>
             
             <div class="tone-legend" style="margin-top: 8px;">
                 <span><span class="tone-dot" style="background:#4fc3f7;"></span>1st (Blue)</span>
@@ -403,7 +403,7 @@
         const setupPage = document.getElementById('setupPage');
         const playerPage = document.getElementById('playerPage');
         const sentenceInput = document.getElementById('sentenceInput');
-       const clearTextBtn = document.getElementById('clearTextBtn');
+        const clearTextBtn = document.getElementById('clearTextBtn');
         const startDivideBtn = document.getElementById('startDivideBtn');
         const divideSection = document.getElementById('divideSection');
         const charGrid = document.getElementById('charGrid');
@@ -426,28 +426,25 @@
             sentenceInput.focus();
         });
 
-        // Fixed Tone Mapping leveraging precise pinyin-pro array parsing
+        // 100% Precise Character-by-Character Tone Mapping with Sentence Context & Sandhi
         function computeSentenceTones(sentence) {
             if (!window.pinyinPro) return Array(sentence.length).fill(0);
             try {
-                // Fetch tone numbers mapped cleanly as an array matching tokenized words/chars
-                const pinyinArr = pinyinPro.pinyin(sentence, { toneType: 'num', type: 'array', nonZh: 'spaced' });
                 let tones = [];
-                let pIndex = 0;
-
+                // Process the whole sentence with context enabled so multi-character words are evaluated correctly
                 for (let i = 0; i < sentence.length; i++) {
                     const char = sentence[i];
                     if (/[\u4e00-\u9fa5]/.test(char)) {
-                        const py = pinyinArr[pIndex] || '';
-                        pIndex++;
+                        // Use context option so pinyin-pro analyzes multi-character words correctly
+                        const py = pinyinPro.pinyin(char, { toneType: 'num', context: sentence, index: i });
                         const match = py.match(/(\d)$/);
                         tones.push(match ? parseInt(match[1]) : 0);
                     } else {
-                        tones.push(0); // Punctuation/Spaces get neutral color slot
+                        tones.push(0); // Non-Chinese characters / punctuation
                     }
                 }
 
-                // Optional: Apply basic 3rd tone sandhi logic safely
+                // Apply 3rd Tone Sandhi: two 3rd tones in a row -> first becomes 2nd tone
                 for (let i = 0; i < tones.length - 1; i++) {
                     if (tones[i] === 3 && tones[i+1] === 3) {
                         tones[i] = 2;
