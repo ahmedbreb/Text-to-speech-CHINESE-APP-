@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Chinese Sentence Chunk Trainer</title>
     <style>
         :root {
@@ -31,6 +31,7 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow-x: hidden;
         }
 
         .page {
@@ -129,7 +130,7 @@
 
         .char-tile {
             background: #333;
-            color: #b0bec5; /* Silver text */
+            color: #b0bec5;
             padding: 10px 14px;
             font-size: 1.3rem;
             border-radius: 6px;
@@ -185,21 +186,28 @@
         .chunk-badge {
             background: #2a2a2a;
             border: 1px solid var(--border-color);
-            color: #b0bec5; /* Silver text */
+            color: #b0bec5;
             padding: 8px 14px;
             border-radius: 6px;
             font-size: 1.1rem;
             font-weight: bold;
         }
 
-        /* Fullscreen Player Page */
+        /* Fullscreen Player Page - Locked against scrolling */
         #playerPage {
             display: none;
+            flex-direction: column;
             justify-content: space-between;
             align-items: center;
             height: 100vh;
+            width: 100vw;
+            position: fixed;
+            top: 0;
+            left: 0;
             padding: 16px;
             background-color: #0d0d0d;
+            overflow: hidden;
+            touch-action: none; /* Prevents scroll/zoom gestures on mobile */
             outline: none;
         }
 
@@ -212,13 +220,14 @@
             align-items: center;
             cursor: pointer;
             padding: 20px;
+            touch-action: manipulation;
             outline: none;
         }
 
         .large-chunk-display {
             font-size: clamp(3rem, 12vw, 6rem);
             font-weight: bold;
-            color: #b0bec5; /* Silver text */
+            color: #b0bec5;
             text-align: center;
             word-break: break-all;
             margin-bottom: 20px;
@@ -243,6 +252,7 @@
             gap: 10px;
             user-select: none;
             -webkit-user-select: none;
+            touch-action: manipulation;
         }
 
         .btn-player {
