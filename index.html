@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chinese Sentence Chunk Trainer</title>
+    <!-- Load pinyin-pro for tone color-coding and context sandhi -->
+    <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.1/dist/index.js"></script>
     <style>
         :root {
             --bg-color: #121212;
@@ -129,20 +131,20 @@
 
         .char-tile {
             background: #333;
-            color: #fff;
             padding: 10px 14px;
             font-size: 1.3rem;
             border-radius: 6px;
             border: 2px solid transparent;
+            font-weight: bold;
         }
 
         .char-tile.highlighted {
             border-color: var(--highlight-color);
-            background: #5c4314;
+            background: #3a2c10;
         }
 
         .char-tile.chunked {
-            opacity: 0.3;
+            opacity: 0.35;
             background: #1a1a1a;
         }
 
@@ -188,6 +190,7 @@
             padding: 8px 14px;
             border-radius: 6px;
             font-size: 1.1rem;
+            font-weight: bold;
         }
 
         /* Fullscreen Player Page */
@@ -217,7 +220,6 @@
         .large-chunk-display {
             font-size: clamp(3rem, 12vw, 6rem);
             font-weight: bold;
-            color: var(--active-play);
             text-align: center;
             word-break: break-all;
             margin-bottom: 20px;
@@ -267,6 +269,22 @@
             color: #aaa;
             border: 1px solid #444;
         }
+
+        /* Tone Color Legend */
+        .tone-legend {
+            display: flex;
+            gap: 12px;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .tone-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
     </style>
 </head>
 <body>
@@ -278,6 +296,15 @@
         <div class="section">
             <label for="sentenceInput">Enter Chinese Sentence:</label>
             <textarea id="sentenceInput" placeholder="例如：我想去中国学习汉语">我想去中国学习汉语</textarea>
+            
+            <div class="tone-legend" style="margin-top: 8px;">
+                <span><span class="tone-dot" style="background:#4fc3f7;"></span>1st (Blue)</span>
+                <span><span class="tone-dot" style="background:#81c784;"></span>2nd (Green)</span>
+                <span><span class="tone-dot" style="background:#ffb74d;"></span>3rd (Orange)</span>
+                <span><span class="tone-dot" style="background:#e57373;"></span>4th (Red)</span>
+                <span><span class="tone-dot" style="background:#b0bec5;"></span>Neutral (Silver)</span>
+            </div>
+
             <div class="input-actions">
                 <button class="btn btn-clear" id="clearTextBtn">🗑 Clear Text</button>
                 <button class="btn btn-primary" id="startDivideBtn">1. Start Dividing</button>
@@ -320,6 +347,14 @@
         let chineseVoice = null;
         let audioCtx = null;
 
+        const toneColors = {
+            1: '#4fc3f7', // Blue
+            2: '#81c784', // Green
+            3: '#ffb74d', // Orange
+            4: '#e57373', // Red
+            0: '#b0bec5'  // Neutral / Silver
+        };
+
         function loadVoices() {
             const voices = synth.getVoices();
             chineseVoice = voices.find(v => v.lang.includes('zh') || v.lang.includes('CN') || v.lang.includes('cmn')) || null;
@@ -350,11 +385,13 @@
         }
 
         let chars = [];
+        let sentenceTones = [];
         let cursorIndex = 0;
         let selectedIndices = [];
         let chunks = [];
         let currentPlaybackIndex = 0;
         let isLocked = false;
+        let hasStartedPlayback = false;
 
         const setupPage = document.getElementById('setupPage');
         const playerPage = document.getElementById('playerPage');
@@ -382,12 +419,56 @@
             sentenceInput.focus();
         });
 
+        // Compute tone numbers and apply sandhi rules
+        function computeSentenceTones(sentence) {
+            if (!window.pinyinPro) return Array(sentence.length).fill(0);
+            try {
+                const pinyinArr = pinyinPro.pinyin(sentence, { toneType: 'num', type: 'array', nonZh: 'spaced' });
+                let tones = [];
+                let pIndex = 0;
+                for (let i = 0; i < sentence.length; i++) {
+                    const char = sentence[i];
+                    if (/[\u4e00-\u9fa5]/.test(char)) {
+                        const py = pinyinArr[pIndex] || '';
+                        pIndex++;
+                        const match = py.match(/(\d)$/);
+                        tones.push(match ? parseInt(match[1]) : 0);
+                    } else {
+                        tones.push(0);
+                    }
+                }
+                // 3rd Tone Sandhi: two 3rd tones in a row -> first becomes 2nd tone
+                for (let i = 0; i < tones.length - 1; i++) {
+                    if (tones[i] === 3 && tones[i+1] === 3) {
+                        tones[i] = 2;
+                    }
+                }
+                return tones;
+            } catch(e) {
+                return Array(sentence.length).fill(0);
+            }
+        }
+
+        // Generate colored HTML string for a substring based on global sentence tone map
+        function getColoredHTML(text, startIndex) {
+            let html = '';
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                const globalIdx = startIndex + i;
+                const tone = sentenceTones[globalIdx] !== undefined ? sentenceTones[globalIdx] : 0;
+                const color = toneColors[tone] || toneColors[0];
+                html += `<span style="color: ${color};">${char}</span>`;
+            }
+            return html;
+        }
+
         startDivideBtn.addEventListener('click', () => {
             initAudioContext();
             const text = sentenceInput.value.trim();
             if (!text) return;
 
             chars = Array.from(text);
+            sentenceTones = computeSentenceTones(text);
             cursorIndex = 0;
             selectedIndices = [];
             chunks = [];
@@ -411,6 +492,8 @@
                     tile.classList.add('chunked');
                 }
 
+                const tone = sentenceTones[idx] || 0;
+                tile.style.color = toneColors[tone];
                 tile.textContent = c;
                 charGrid.appendChild(tile);
             });
@@ -440,7 +523,6 @@
             renderChunksList();
         });
 
-        // Smart Undo: Clears active selection first; if none active, removes the last saved chunk
         resetSelectionBtn.addEventListener('click', () => {
             if (selectedIndices.length > 0) {
                 cursorIndex = selectedIndices[0];
@@ -458,7 +540,7 @@
             chunks.forEach((chunk, idx) => {
                 const badge = document.createElement('div');
                 badge.className = 'chunk-badge';
-                badge.textContent = `${idx + 1}: ${chunk.text}`;
+                badge.innerHTML = `${idx + 1}: ${getColoredHTML(chunk.text, chunk.start)}`;
                 chunksList.appendChild(badge);
             });
         }
@@ -471,6 +553,10 @@
             setupPage.style.display = 'none';
             playerPage.style.display = 'flex';
             currentPlaybackIndex = 0;
+            hasStartedPlayback = false;
+            isLocked = false;
+            lockBtn.textContent = '🔓 Lock Current Chunk';
+            lockBtn.classList.remove('locked');
             updatePlayerUI();
         }
 
@@ -479,19 +565,21 @@
         function updatePlayerUI() {
             if (chunks.length === 0) return;
             const currentChunk = chunks[currentPlaybackIndex];
-            largeDisplay.textContent = currentChunk.text;
+            largeDisplay.innerHTML = getColoredHTML(currentChunk.text, currentChunk.start);
             chunkCounter.textContent = `Chunk ${currentPlaybackIndex + 1} of ${chunks.length}`;
         }
 
         tapArea.addEventListener('click', () => {
             if (chunks.length === 0) return;
 
-            speakText(chunks[currentPlaybackIndex].text);
-            updatePlayerUI();
-
-            if (!isLocked) {
+            if (!hasStartedPlayback) {
+                hasStartedPlayback = true;
+            } else if (!isLocked) {
                 currentPlaybackIndex = (currentPlaybackIndex + 1) % chunks.length;
             }
+
+            updatePlayerUI();
+            speakText(chunks[currentPlaybackIndex].text);
         });
 
         lockBtn.addEventListener('click', (e) => {
@@ -509,6 +597,7 @@
         resetBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             currentPlaybackIndex = 0;
+            hasStartedPlayback = false;
             synth.cancel();
             updatePlayerUI();
         });
