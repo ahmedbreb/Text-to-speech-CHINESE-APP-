@@ -222,10 +222,11 @@
             text-align: center;
             word-break: break-all;
             margin-bottom: 20px;
-            /* Explicitly enable text selection for long-press copying */
+            /* Explicitly enable text selection for word copying */
             user-select: text !important;
             -webkit-user-select: text !important;
             cursor: text;
+            letter-spacing: 0.05em; /* Helps mobile engines recognize word boundaries cleanly */
         }
 
         .chunk-counter {
@@ -461,7 +462,7 @@
                 const globalIdx = startIndex + i;
                 const tone = sentenceTones[globalIdx] !== undefined ? sentenceTones[globalIdx] : 0;
                 const color = toneColors[tone] || toneColors[0];
-                html += `<span style="color: ${color};">${char}</span>`;
+                html += `<span style="color: ${color}; display: inline-block;">${char}</span>`;
             }
             return html;
         }
@@ -573,12 +574,11 @@
             chunkCounter.textContent = `Chunk ${currentPlaybackIndex + 1} of ${chunks.length}`;
         }
 
-        // Tap Anywhere to Play & Advance (Ignores taps if user is selecting/highlighting text)
         tapArea.addEventListener('click', () => {
             if (chunks.length === 0) return;
 
             const selection = window.getSelection().toString();
-            if (selection.length > 0) return; // User is selecting text to copy, do not trigger audio
+            if (selection.length > 0) return;
 
             if (!hasStartedPlayback) {
                 hasStartedPlayback = true;
