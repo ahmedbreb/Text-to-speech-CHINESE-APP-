@@ -21,7 +21,7 @@
             box-sizing: border-box;
             user-select: none;
             -webkit-user-select: none;
-            -webkit-tap-highlight-color: transparent; /* Removes mobile tap flash */
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
@@ -290,7 +290,7 @@
             <div class="divide-controls">
                 <button class="btn btn-step" id="addCharBtn">➕ Add Character</button>
                 <button class="btn btn-make" id="saveChunkBtn">✂️ Save Chunk</button>
-                <button class="btn btn-undo" id="resetSelectionBtn">↩ Undo / Reset Selection</button>
+                <button class="btn btn-undo" id="resetSelectionBtn">↩ Undo Highlight / Chunk</button>
             </div>
         </div>
 
@@ -440,12 +440,17 @@
             renderChunksList();
         });
 
-        // Reset Selection Button
+        // Smart Undo: Clears active selection first; if none active, removes the last saved chunk
         resetSelectionBtn.addEventListener('click', () => {
-            if (selectedIndices.length === 0) return;
-            cursorIndex = selectedIndices[0];
-            selectedIndices = [];
+            if (selectedIndices.length > 0) {
+                cursorIndex = selectedIndices[0];
+                selectedIndices = [];
+            } else if (chunks.length > 0) {
+                const lastChunk = chunks.pop();
+                cursorIndex = lastChunk.start;
+            }
             renderCharGrid();
+            renderChunksList();
         });
 
         function renderChunksList() {
