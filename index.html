@@ -134,16 +134,27 @@
             border-radius: 6px;
             border: 2px solid transparent;
             font-weight: bold;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .char-tile.clickable {
+            cursor: pointer;
+        }
+
+        .char-tile.clickable:hover {
+            background: #444;
         }
 
         .char-tile.highlighted {
             border-color: var(--highlight-color);
             background: #3a2c10;
+            color: #ffb74d;
         }
 
         .char-tile.chunked {
             opacity: 0.35;
             background: #1a1a1a;
+            cursor: default;
         }
 
         .divide-controls {
@@ -201,13 +212,13 @@
             margin-left: 10px;
         }
 
-        /* Fullscreen Player Page - Fully fixed sizing & no button clipping */
+        /* Fullscreen Player Page */
         #playerPage {
             display: none;
             flex-direction: column;
             justify-content: space-between;
             align-items: center;
-            height: 100dvh; /* Dynamic Viewport Height prevents mobile address bar cutoff */
+            height: 100dvh;
             width: 100vw;
             position: fixed;
             top: 0;
@@ -324,13 +335,13 @@
         </div>
 
         <div class="section" id="divideSection" style="display:none;">
-            <label>Highlight & Create Chunks:</label>
+            <label>Tap tiles or use button to build chunks:</label>
             <div class="char-grid" id="charGrid"></div>
             
             <div class="divide-controls">
-                <button class="btn btn-step" id="addCharBtn">➕ Add Character</button>
+                <button class="btn btn-step" id="addCharBtn">➕ Add Next</button>
                 <button class="btn btn-make" id="saveChunkBtn">✂️ Save Chunk</button>
-                <button class="btn btn-undo" id="resetSelectionBtn">↩ Undo Highlight / Chunk</button>
+                <button class="btn btn-undo" id="resetSelectionBtn">↩ Undo</button>
             </div>
         </div>
 
@@ -395,16 +406,19 @@
             synth.speak(utterance);
         }
 
-        // Automatic translation helper using free public MyMemory API
+        // Translation helper with strict 3-second timeout to prevent lag/freezing
         async function fetchTranslation(text) {
             try {
-                const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=zh|en`);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=zh|en`, { signal: controller.signal });
+                clearTimeout(timeoutId);
                 const data = await res.json();
                 if (data && data.responseData && data.responseData.translatedText) {
                     return data.responseData.translatedText;
                 }
             } catch (e) {
-                console.error("Translation lookup failed", e);
+                console.warn("Translation skipped/timed out", e);
             }
             return '';
         }
@@ -455,11 +469,24 @@
             chunks = [];
             currentPlaybackIndex = 0;
 
+            // Find first unchunked index
+            updateCursor();
+
             divideSection.style.display = 'block';
             chunksSection.style.display = 'block';
             renderCharGrid();
             renderChunksList();
         });
+
+        function isIndexChunked(idx) {
+            return chunks.some(chunk => idx >= chunk.start && idx < chunk.end);
+        }
+
+        function updateCursor() {
+            while (cursorIndex < chars.length && isIndexChunked(cursorIndex)) {
+                cursorIndex++;
+            }
+        }
 
         function renderCharGrid() {
             charGrid.innerHTML = '';
@@ -467,10 +494,28 @@
                 const tile = document.createElement('div');
                 tile.className = 'char-tile';
 
-                if (selectedIndices.includes(idx)) {
-                    tile.classList.add('highlighted');
-                } else if (isIndexChunked(idx)) {
+                const chunked = isIndexChunked(idx);
+                const highlighted = selectedIndices.includes(idx);
+
+                if (chunked) {
                     tile.classList.add('chunked');
+                } else {
+                    tile.classList.add('clickable');
+                    if (highlighted) {
+                        tile.classList.add('highlighted');
+                    }
+                    // Allow direct tapping on tiles to select/deselect seamlessly
+                    tile.addEventListener('click', () => {
+                        if (chunked) return;
+                        const pos = selectedIndices.indexOf(idx);
+                        if (pos > -1) {
+                            selectedIndices.splice(pos, 1);
+                        } else {
+                            selectedIndices.push(idx);
+                            selectedIndices.sort((a, b) => a - b);
+                        }
+                        renderCharGrid();
+                    });
                 }
 
                 tile.textContent = c;
@@ -478,13 +523,13 @@
             });
         }
 
-        function isIndexChunked(idx) {
-            return chunks.some(chunk => idx >= chunk.start && idx < chunk.end);
-        }
-
         addCharBtn.addEventListener('click', () => {
+            updateCursor();
             if (cursorIndex >= chars.length) return;
-            selectedIndices.push(cursorIndex);
+            if (!selectedIndices.includes(cursorIndex)) {
+                selectedIndices.push(cursorIndex);
+                selectedIndices.sort((a, b) => a - b);
+            }
             cursorIndex++;
             renderCharGrid();
         });
@@ -496,11 +541,18 @@
             const end = selectedIndices[selectedIndices.length - 1] + 1;
             const text = chars.slice(start, end).join('');
 
-            // Automatically fetch translation in the background
+            // Disable button briefly during fetch to prevent double-tap glitches
+            saveChunkBtn.disabled = true;
             const translation = await fetchTranslation(text);
+            saveChunkBtn.disabled = false;
 
             chunks.push({ text, start, end, translation });
             selectedIndices = [];
+            
+            // Reset cursor cleanly to next available unchunked character
+            cursorIndex = 0;
+            updateCursor();
+
             renderCharGrid();
             renderChunksList();
         });
@@ -513,6 +565,7 @@
                 const lastChunk = chunks.pop();
                 cursorIndex = lastChunk.start;
             }
+            updateCursor();
             renderCharGrid();
             renderChunksList();
         });
@@ -522,7 +575,7 @@
             chunks.forEach((chunk, idx) => {
                 const badge = document.createElement('div');
                 badge.className = 'chunk-badge';
-                badge.innerHTML = `<div><strong>${idx + 1}:</strong> ${chunk.text} <span class="trans">${chunk.translation || 'Translating...'}</span></div>`;
+                badge.innerHTML = `<div><strong>${idx + 1}:</strong> ${chunk.text} <span class="trans">${chunk.translation || '...'}</span></div>`;
                 chunksList.appendChild(badge);
             });
         }
