@@ -206,12 +206,6 @@
             align-items: center;
         }
 
-        .chunk-badge span.trans {
-            color: #888;
-            font-size: 0.85rem;
-            margin-left: 10px;
-        }
-
         /* Fullscreen Player Page */
         #playerPage {
             display: none;
@@ -223,7 +217,7 @@
             position: fixed;
             top: 0;
             left: 0;
-            padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)) 16px;
+            padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px)) 16px;
             background-color: #0d0d0d;
             overflow: hidden;
             touch-action: none;
@@ -244,31 +238,21 @@
         }
 
         .large-chunk-display {
-            font-size: clamp(2.5rem, 10vw, 5rem);
+            font-size: clamp(3rem, 12vw, 6rem);
             font-weight: bold;
             color: #b0bec5;
             text-align: center;
             word-break: break-all;
-            margin-bottom: 6px;
+            margin-bottom: 12px;
             user-select: text !important;
             -webkit-user-select: text !important;
             cursor: text;
             letter-spacing: 0.05em;
         }
 
-        .small-translation-display {
-            font-size: clamp(0.9rem, 3vw, 1.3rem);
-            color: #888;
-            text-align: center;
-            margin-bottom: 8px;
-            user-select: text !important;
-            -webkit-user-select: text !important;
-            font-weight: normal;
-        }
-
         .chunk-counter {
-            font-size: 0.9rem;
-            color: #666;
+            font-size: 1rem;
+            color: #777;
             user-select: none;
             -webkit-user-select: none;
         }
@@ -278,7 +262,7 @@
             max-width: 600px;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 8px;
             flex-shrink: 0;
             user-select: none;
             -webkit-user-select: none;
@@ -286,8 +270,8 @@
         }
 
         .btn-player {
-            padding: 10px;
-            font-size: 0.95rem;
+            padding: 12px;
+            font-size: 1rem;
             border-radius: 8px;
             font-weight: bold;
             border: none;
@@ -356,7 +340,6 @@
     <div id="playerPage" class="page">
         <div class="tap-area" id="tapArea">
             <div class="large-chunk-display" id="largeDisplay">准备</div>
-            <div class="small-translation-display" id="smallTranslationDisplay"></div>
             <div class="chunk-counter" id="chunkCounter">Tap anywhere to start</div>
         </div>
 
@@ -406,46 +389,6 @@
             synth.speak(utterance);
         }
 
-        // Comprehensive phrase-level offline dictionary map
-        const dictionary = {
-            "在": "at / in",
-            "公共": "public",
-            "场所": "place / location",
-            "公共场所": "public place",
-            "在公共场所": "in public places",
-            "要": "must / want to",
-            "讲究": "pay attention to / strive for",
-            "卫生": "hygiene / sanitation",
-            "讲究卫生": "pay attention to hygiene",
-            "不": "not",
-            "然": "so / right",
-            "不然": "otherwise",
-            "容易": "easy",
-            "接触": "come into contact with",
-            "到": "arrive / to",
-            "接触到": "come into contact with",
-            "病菌": "germs / bacteria",
-            "我": "I",
-            "想": "want",
-            "去": "go",
-            "中国": "China",
-            "学习": "study",
-            "汉语": "Chinese language",
-            "学校": "school",
-            "学生": "student",
-            "老师": "teacher",
-            "我想去中国学习汉语": "I want to go to China to study Chinese"
-        };
-
-        function getReliableTranslation(text) {
-            text = text.trim();
-            if (dictionary[text]) {
-                return dictionary[text];
-            }
-            // Coherent fallback instead of broken single-character stitching
-            return "phrase / vocabulary";
-        }
-
         let chars = [];
         let cursorIndex = 0;
         let selectedIndices = [];
@@ -470,7 +413,6 @@
         
         const tapArea = document.getElementById('tapArea');
         const largeDisplay = document.getElementById('largeDisplay');
-        const smallTranslationDisplay = document.getElementById('smallTranslationDisplay');
         const chunkCounter = document.getElementById('chunkCounter');
         const lockBtn = document.getElementById('lockBtn');
         const resetBtn = document.getElementById('resetBtn');
@@ -562,9 +504,7 @@
             const end = selectedIndices[selectedIndices.length - 1] + 1;
             const text = chars.slice(start, end).join('');
 
-            const translation = getReliableTranslation(text);
-
-            chunks.push({ text, start, end, translation });
+            chunks.push({ text, start, end });
             selectedIndices = [];
             
             cursorIndex = 0;
@@ -592,7 +532,7 @@
             chunks.forEach((chunk, idx) => {
                 const badge = document.createElement('div');
                 badge.className = 'chunk-badge';
-                badge.innerHTML = `<div><strong>${idx + 1}:</strong> ${chunk.text} <span class="trans">${chunk.translation}</span></div>`;
+                badge.innerHTML = `<div><strong>${idx + 1}:</strong> ${chunk.text}</div>`;
                 chunksList.appendChild(badge);
             });
         }
@@ -618,7 +558,6 @@
             if (chunks.length === 0) return;
             const currentChunk = chunks[currentPlaybackIndex];
             largeDisplay.textContent = currentChunk.text;
-            smallTranslationDisplay.textContent = currentChunk.translation;
             chunkCounter.textContent = `Chunk ${currentPlaybackIndex + 1} of ${chunks.length}`;
         }
 
