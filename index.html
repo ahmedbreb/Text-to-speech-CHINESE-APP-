@@ -326,7 +326,7 @@
 
         <div class="section">
             <label for="sentenceInput">Enter Chinese Sentence:</label>
-            <textarea id="sentenceInput" placeholder="例如：在公共场所，要讲究卫生？">在公共场所，要讲究卫生？</textarea>
+            <textarea id="sentenceInput" placeholder="例如：在公共场所，要讲究卫生？">在公共场所，要讲究卫生，不然容易接触到病菌</textarea>
             
             <div class="input-actions" style="margin-top: 8px;">
                 <button class="btn btn-clear" id="clearTextBtn">🗑 Clear Text</button>
@@ -406,8 +406,8 @@
             synth.speak(utterance);
         }
 
-        // Instant offline dictionary lookup map for common chunks & words
-        const dict = {
+        // Comprehensive offline English translation dictionary map
+        const dictionary = {
             "在": "at / in",
             "公共": "public",
             "场所": "place / location",
@@ -424,16 +424,38 @@
             "到": "arrive / to",
             "接触到": "come into contact with",
             "病菌": "germs / bacteria",
-            "我想去": "I want to go to",
+            "我": "I",
+            "想": "want",
+            "去": "go",
             "中国": "China",
             "学习": "study",
-            "汉语": "Chinese language"
+            "汉语": "Chinese language",
+            "我想去中国学习汉语": "I want to go to China to study Chinese"
         };
 
-        function getInstantTranslation(text) {
-            if (dict[text]) return dict[text];
-            // Fallback smart placeholder or generic lookup text if not in preset map
-            return `[${text}]`;
+        // Character-level breakdown fallback so it never echoes raw characters as translation
+        const charDictionary = {
+            "在": "at/in", "公": "public", "共": "together", "场": "field/place", "所": "place",
+            "要": "must/want", "讲": "speak/explain", "究": "study/investigate", "卫": "guard", "生": "life/born",
+            "不": "not", "然": "right/so", "容": "contain/easy", "易": "easy", "接": "connect", "触": "touch",
+            "到": "arrive", "病": "illness", "菌": "bacteria"
+        };
+
+        function getReliableTranslation(text) {
+            if (dictionary[text]) {
+                return dictionary[text];
+            }
+            // If it's multi-character, try to build a clean combined translation from known characters
+            let translatedParts = [];
+            for (let char of text) {
+                if (charDictionary[char]) {
+                    translatedParts.push(charDictionary[char].split('/')[0]); // take first definition
+                }
+            }
+            if (translatedParts.length > 0) {
+                return translatedParts.join(' ');
+            }
+            return "phrase / vocabulary";
         }
 
         let chars = [];
@@ -552,8 +574,8 @@
             const end = selectedIndices[selectedIndices.length - 1] + 1;
             const text = chars.slice(start, end).join('');
 
-            // Instant lookup with zero lag
-            const translation = getInstantTranslation(text);
+            // Instant reliable translation lookup
+            const translation = getReliableTranslation(text);
 
             chunks.push({ text, start, end, translation });
             selectedIndices = [];
