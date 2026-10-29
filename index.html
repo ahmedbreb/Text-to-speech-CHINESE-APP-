@@ -67,7 +67,7 @@
             margin-bottom: 6px;
         }
 
-        textarea, input[type="text"] {
+        textarea {
             width: 100%;
             background-color: #2a2a2a;
             color: var(--text-color);
@@ -76,13 +76,10 @@
             padding: 10px;
             font-size: 1.1rem;
             resize: none;
-        }
-
-        textarea {
             height: 70px;
         }
 
-        textarea:focus, input[type="text"]:focus {
+        textarea:focus {
             outline: none;
             border-color: var(--accent-color);
         }
@@ -204,18 +201,18 @@
             margin-left: 10px;
         }
 
-        /* Fullscreen Player Page - Compact layout ensuring all buttons fit */
+        /* Fullscreen Player Page - Fully fixed sizing & no button clipping */
         #playerPage {
             display: none;
             flex-direction: column;
             justify-content: space-between;
             align-items: center;
-            height: 100vh;
+            height: 100dvh; /* Dynamic Viewport Height prevents mobile address bar cutoff */
             width: 100vw;
             position: fixed;
             top: 0;
             left: 0;
-            padding: 12px 16px;
+            padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)) 16px;
             background-color: #0d0d0d;
             overflow: hidden;
             touch-action: none;
@@ -230,7 +227,7 @@
             justify-content: center;
             align-items: center;
             cursor: pointer;
-            padding: 10px;
+            padding: 5px;
             touch-action: manipulation;
             outline: none;
         }
@@ -241,7 +238,7 @@
             color: #b0bec5;
             text-align: center;
             word-break: break-all;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             user-select: text !important;
             -webkit-user-select: text !important;
             cursor: text;
@@ -249,17 +246,17 @@
         }
 
         .small-translation-display {
-            font-size: clamp(1rem, 3.5vw, 1.5rem);
+            font-size: clamp(0.9rem, 3vw, 1.3rem);
             color: #888;
             text-align: center;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             user-select: text !important;
             -webkit-user-select: text !important;
             font-weight: normal;
         }
 
         .chunk-counter {
-            font-size: 1rem;
+            font-size: 0.9rem;
             color: #666;
             user-select: none;
             -webkit-user-select: none;
@@ -270,16 +267,16 @@
             max-width: 600px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
+            flex-shrink: 0;
             user-select: none;
             -webkit-user-select: none;
             touch-action: manipulation;
-            padding-bottom: 4px;
         }
 
         .btn-player {
-            padding: 12px;
-            font-size: 1rem;
+            padding: 10px;
+            font-size: 0.95rem;
             border-radius: 8px;
             font-weight: bold;
             border: none;
@@ -330,11 +327,6 @@
             <label>Highlight & Create Chunks:</label>
             <div class="char-grid" id="charGrid"></div>
             
-            <div style="margin-bottom: 8px;">
-                <label for="chunkTranslationInput">English Translation for this chunk (Optional):</label>
-                <input type="text" id="chunkTranslationInput" placeholder="e.g., in public places">
-            </div>
-
             <div class="divide-controls">
                 <button class="btn btn-step" id="addCharBtn">➕ Add Character</button>
                 <button class="btn btn-make" id="saveChunkBtn">✂️ Save Chunk</button>
@@ -386,16 +378,14 @@
             synth.cancel();
         }
 
-        // Checks if text contains actual speech characters or is just punctuation/symbols
         function isPurePunctuation(text) {
-            // Strips out all spaces, punctuation, symbols, and numbers
             const clean = text.replace(/[\s\p{P}\p{S}\p{N}]/gu, '');
             return clean.length === 0;
         }
 
         function speakText(text) {
             initAudioContext();
-            if (!text || isPurePunctuation(text)) return; // Skips symbols like "?" completely
+            if (!text || isPurePunctuation(text)) return;
 
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'zh-CN';
@@ -403,6 +393,20 @@
             utterance.rate = 0.85;
 
             synth.speak(utterance);
+        }
+
+        // Automatic translation helper using free public MyMemory API
+        async function fetchTranslation(text) {
+            try {
+                const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=zh|en`);
+                const data = await res.json();
+                if (data && data.responseData && data.responseData.translatedText) {
+                    return data.responseData.translatedText;
+                }
+            } catch (e) {
+                console.error("Translation lookup failed", e);
+            }
+            return '';
         }
 
         let chars = [];
@@ -420,7 +424,6 @@
         const startDivideBtn = document.getElementById('startDivideBtn');
         const divideSection = document.getElementById('divideSection');
         const charGrid = document.getElementById('charGrid');
-        const chunkTranslationInput = document.getElementById('chunkTranslationInput');
         const addCharBtn = document.getElementById('addCharBtn');
         const saveChunkBtn = document.getElementById('saveChunkBtn');
         const resetSelectionBtn = document.getElementById('resetSelectionBtn');
@@ -454,7 +457,6 @@
 
             divideSection.style.display = 'block';
             chunksSection.style.display = 'block';
-            chunkTranslationInput.value = '';
             renderCharGrid();
             renderChunksList();
         });
@@ -487,17 +489,18 @@
             renderCharGrid();
         });
 
-        saveChunkBtn.addEventListener('click', () => {
+        saveChunkBtn.addEventListener('click', async () => {
             if (selectedIndices.length === 0) return;
 
             const start = selectedIndices[0];
             const end = selectedIndices[selectedIndices.length - 1] + 1;
             const text = chars.slice(start, end).join('');
-            const translation = chunkTranslationInput.value.trim();
+
+            // Automatically fetch translation in the background
+            const translation = await fetchTranslation(text);
 
             chunks.push({ text, start, end, translation });
             selectedIndices = [];
-            chunkTranslationInput.value = '';
             renderCharGrid();
             renderChunksList();
         });
@@ -519,7 +522,7 @@
             chunks.forEach((chunk, idx) => {
                 const badge = document.createElement('div');
                 badge.className = 'chunk-badge';
-                badge.innerHTML = `<div><strong>${idx + 1}:</strong> ${chunk.text} <span class="trans">${chunk.translation || ''}</span></div>`;
+                badge.innerHTML = `<div><strong>${idx + 1}:</strong> ${chunk.text} <span class="trans">${chunk.translation || 'Translating...'}</span></div>`;
                 chunksList.appendChild(badge);
             });
         }
