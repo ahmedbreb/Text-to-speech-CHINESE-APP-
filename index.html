@@ -406,11 +406,12 @@
             synth.speak(utterance);
         }
 
-        // Comprehensive offline English translation dictionary map
+        // Comprehensive phrase-level offline dictionary map
         const dictionary = {
             "在": "at / in",
             "公共": "public",
             "场所": "place / location",
+            "公共场所": "public place",
             "在公共场所": "in public places",
             "要": "must / want to",
             "讲究": "pay attention to / strive for",
@@ -430,31 +431,18 @@
             "中国": "China",
             "学习": "study",
             "汉语": "Chinese language",
+            "学校": "school",
+            "学生": "student",
+            "老师": "teacher",
             "我想去中国学习汉语": "I want to go to China to study Chinese"
         };
 
-        // Character-level breakdown fallback so it never echoes raw characters as translation
-        const charDictionary = {
-            "在": "at/in", "公": "public", "共": "together", "场": "field/place", "所": "place",
-            "要": "must/want", "讲": "speak/explain", "究": "study/investigate", "卫": "guard", "生": "life/born",
-            "不": "not", "然": "right/so", "容": "contain/easy", "易": "easy", "接": "connect", "触": "touch",
-            "到": "arrive", "病": "illness", "菌": "bacteria"
-        };
-
         function getReliableTranslation(text) {
+            text = text.trim();
             if (dictionary[text]) {
                 return dictionary[text];
             }
-            // If it's multi-character, try to build a clean combined translation from known characters
-            let translatedParts = [];
-            for (let char of text) {
-                if (charDictionary[char]) {
-                    translatedParts.push(charDictionary[char].split('/')[0]); // take first definition
-                }
-            }
-            if (translatedParts.length > 0) {
-                return translatedParts.join(' ');
-            }
+            // Coherent fallback instead of broken single-character stitching
             return "phrase / vocabulary";
         }
 
@@ -574,7 +562,6 @@
             const end = selectedIndices[selectedIndices.length - 1] + 1;
             const text = chars.slice(start, end).join('');
 
-            // Instant reliable translation lookup
             const translation = getReliableTranslation(text);
 
             chunks.push({ text, start, end, translation });
